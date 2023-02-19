@@ -1,7 +1,7 @@
 import socket
 
 HOST = ''  # all available interfaces
-PORT = 12345  # arbitrary non-privileged port
+PORT = 18705  # arbitrary non-privileged port
 
 # create a TCP socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
