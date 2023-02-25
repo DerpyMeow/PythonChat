@@ -1,56 +1,50 @@
-import socket
 import threading
-import time
+import socket
 
-HOST = ''  # all available interfaces
-PORT = 18705  # arbitrary non-privileged port
-PASSWORD = "1234" # set your server password here
+host = ''
+port = 18705
 
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((host, port))
+server.listen()
 
-# create a TCP socket
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-# bind the socket to a specific address and port
-server_socket.bind((HOST, PORT))
-
-# listen for incoming connections
-server_socket.listen()
-print(f'Chat server is running on port {PORT}')
-
-# list to keep track of all connected clients
 clients = []
+nicknames = []
 
-def handle_client(client_socket, client_address):
-    # ask for password
-    client_socket.sendall("PASSWORD".encode('utf-8'))
-    password = client_socket.recv(1024).decode('utf-8')
-    if password != PASSWORD:
-        print(f"Wrong password entered by {client_address[0]}:{client_address[1]}")
-        client_socket.close()
-        return
+def broadcast(message):
+    for client in clients:
+        client.send(message)
 
-
-    # add the client to the list of connected clients
-    clients.append(client_socket)
-    print(f'Connected to {client_address[0]}:{client_address[1]}')
-
-    # receive and send messages
+def handle(client):
     while True:
-        message = client_socket.recv(1024).decode('utf-8')
-        print(f'Received message: {message}')
+        try:
+            message = client.recv(1204)
+            broadcast(message)
+        except:
+            index = clients.index(client)
+            clients.remove(client)
+            client.close()
+            nickname = nicknames[index]
+            broadcast(f'{nickname} left the chat!'.encode('ascii'))
+            nicknames.remove(nickname)
+            break
 
-        # send the message to all other clients
-        for c in clients:
-            if c != client_socket:
-                c.sendall(message.encode('utf-8'))
+def receive():
+    while True:
+        client, address = server.accept()
+        print(f"Connected with {str(address)}")
 
-# wait for clients to connect
-while True:
-    client_socket, client_address = server_socket.accept()
+        client.send('NICK'.encode('ascii'))
+        nickname = client.recv(1024).decode('ascii')
+        nicknames.append(nickname)
+        clients.append(client)
 
-    # start a new thread to handle the client
-    thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
-    thread.start()
+        print(f'Nickname of the client is {nickname}!')
+        broadcast(f'{nickname} joined the chat!'.encode('ascii'))
+        client.send('Connected to the server!'.encode('ascii'))
 
-# close the socket when finished
-server_socket.close()
+        thread = threading.Thread(target=handle, args=(client,))
+        thread.start()
+
+print("Server is listening....")
+receive()
